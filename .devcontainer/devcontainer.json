@@ -3,10 +3,7 @@
   "image": "mcr.microsoft.com/devcontainers/base:noble",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:4": {
-      "moby": false,
-      "version": "latest",
-      "installDockerBuildx": true,
-      "dockerDashComposeVersion": "latest"
+      "moby": false
     }
   },
   "forwardPorts": [8080],
@@ -16,8 +13,5 @@
       "onAutoForward": "notify"
     }
   },
-  "hostRequirements": {
-    "cpus": 2
-  },
-  "postCreateCommand": "bash .devcontainer/post-create.sh"
+  "postCreateCommand": "docker --version && echo 'Ambiente Keycloak Training pronto.'"
 }
