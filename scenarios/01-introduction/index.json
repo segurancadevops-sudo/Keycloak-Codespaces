@@ -1,0 +1,21 @@
+{
+  "title": "Laboratório 01- Keycloak - Primeiros Passos",
+  "description": "Primeiro laboratório de Keycloak.",
+  "details": {
+    "intro": {
+      "text": "intro.md"
+    },
+    "steps": [
+      {
+        "title": "Bem-vindo",
+        "text": "step1.md"
+      }
+    ],
+    "finish": {
+      "text": "finish.md"
+    }
+  },
+  "backend": {
+    "imageid": "ubuntu"
+  }
+}

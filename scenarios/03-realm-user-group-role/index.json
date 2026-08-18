@@ -1,0 +1,33 @@
+{
+  "title": "Laboratório 03- Realm, Usuário, Grupo e Role",
+  "description": "Aprenda os principais componentes administrativos do Keycloak.",
+  "details": {
+    "intro": {
+      "text": "intro.md"
+    },
+    "steps": [
+      {
+        "title": "Criar o Realm",
+        "text": "step1.md"
+      },
+      {
+        "title": "Criar Grupo e Role",
+        "text": "step2.md"
+      },
+      {
+        "title": "Criar Usuário e Associar Permissões",
+        "text": "step3.md"
+      },
+      {
+        "title": "Validar a Configuração",
+        "text": "step4.md"
+      }
+    ],
+    "finish": {
+      "text": "finish.md"
+    }
+  },
+  "backend": {
+    "imageid": "ubuntu"
+  }
+}

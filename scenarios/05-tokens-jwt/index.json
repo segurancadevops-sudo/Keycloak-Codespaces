@@ -1,0 +1,29 @@
+{
+  "title": "Laboratório 05- Tokens e JWT",
+  "description": "Conheça Access Token, Refresh Token, ID Token e a estrutura de um JWT.",
+  "details": {
+    "intro": {
+      "text": "intro.md"
+    },
+    "steps": [
+      {
+        "title": "Conhecer os Tokens",
+        "text": "step1.md"
+      },
+      {
+        "title": "Analisar um JWT",
+        "text": "step2.md"
+      },
+      {
+        "title": "Identificar Claims",
+        "text": "step3.md"
+      }
+    ],
+    "finish": {
+      "text": "finish.md"
+    }
+  },
+  "backend": {
+    "imageid": "ubuntu"
+  }
+}

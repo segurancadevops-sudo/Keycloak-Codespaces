@@ -1,0 +1,29 @@
+{
+  "title": "Laboratório 02- Keycloak com Docker",
+  "description": "Execute o Keycloak em um container Docker e conheça seu funcionamento.",
+  "details": {
+    "intro": {
+      "text": "intro.md"
+    },
+    "steps": [
+      {
+        "title": "Verificar o Docker",
+        "text": "step1.md"
+      },
+      {
+        "title": "Executar o Keycloak",
+        "text": "step2.md"
+      },
+      {
+        "title": "Validar o Keycloak",
+        "text": "step3.md"
+      }
+    ],
+    "finish": {
+      "text": "finish.md"
+    }
+  },
+  "backend": {
+    "imageid": "ubuntu"
+  }
+}

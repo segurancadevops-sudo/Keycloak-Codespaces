@@ -1,0 +1,29 @@
+{
+  "title": "Laboratório 04 - Client e OpenID Connect",
+  "description": "Configure uma aplicação cliente no Keycloak utilizando OpenID Connect.",
+  "details": {
+    "intro": {
+      "text": "intro.md"
+    },
+    "steps": [
+      {
+        "title": "Criar o Client",
+        "text": "step1.md"
+      },
+      {
+        "title": "Configurar o Client",
+        "text": "step2.md"
+      },
+      {
+        "title": "Validar a Configuração",
+        "text": "step3.md"
+      }
+    ],
+    "finish": {
+      "text": "finish.md"
+    }
+  },
+  "backend": {
+    "imageid": "ubuntu"
+  }
+}
