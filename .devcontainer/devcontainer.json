@@ -8,8 +8,8 @@
   "portsAttributes": {
     "8080": {
       "label": "Keycloak",
-      "onAutoForward": "openBrowser"
+      "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "docker --version"
+  "postCreateCommand": "docker --version && echo 'Ambiente Keycloak Training pronto.'"
 }

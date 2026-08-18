@@ -1,23 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-docker rm -f keycloak 2>/dev/null || true
+IMAGE="${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:latest}"
+ADMIN="${KEYCLOAK_ADMIN:-admin}"
+PASSWORD="${KEYCLOAK_PASSWORD:-Treinamento@2026}"
 
-docker run -d \
-  --name keycloak \
-  -p 8080:8080 \
-  -e KC_BOOTSTRAP_ADMIN_USERNAME=admin \
-  -e KC_BOOTSTRAP_ADMIN_PASSWORD='Treinamento@2026' \
-  quay.io/keycloak/keycloak:latest \
-  start-dev
+docker rm -f keycloak >/dev/null 2>&1 || true
 
-echo "Aguardando o Keycloak..."
+echo "[INFO] Iniciando Keycloak..."
+docker run -d   --name keycloak   -p 8080:8080   -e KC_BOOTSTRAP_ADMIN_USERNAME="${ADMIN}"   -e KC_BOOTSTRAP_ADMIN_PASSWORD="${PASSWORD}"   "${IMAGE}"   start-dev
 
-until curl -fsS http://localhost:8080/realms/master >/dev/null 2>&1; do
+echo "[INFO] Aguardando o Keycloak responder..."
+
+for tentativa in $(seq 1 90); do
+  if curl -fsS http://localhost:8080/realms/master >/dev/null 2>&1; then
+    echo
+    echo "[OK] Keycloak disponivel."
+    echo "Usuario: ${ADMIN}"
+    echo "Senha: ${PASSWORD}"
+    echo "No Codespaces, abra a aba PORTAS e clique na URL da porta 8080."
+    exit 0
+  fi
+  printf '.'
   sleep 2
 done
 
 echo
-echo "Keycloak disponível na porta 8080."
-echo "Usuário: admin"
-echo "Senha: Treinamento@2026"
+echo "[ERRO] O Keycloak nao respondeu no tempo esperado."
+docker logs keycloak --tail 100 || true
+exit 1
