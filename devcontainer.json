@@ -1,0 +1,15 @@
+{
+  "name": "Keycloak Training Codespace",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {}
+  },
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "Keycloak",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "docker --version"
+}
