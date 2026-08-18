@@ -1,5 +1,5 @@
 {
-  "name": "Keycloak Training Codespace",
+  "name": "Keycloak Training Academy",
   "image": "mcr.microsoft.com/devcontainers/base:noble",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:4": {
@@ -10,7 +10,7 @@
   "forwardPorts": [8080],
   "portsAttributes": {
     "8080": {
-      "label": "Keycloak",
+      "label": "Keycloak Training",
       "onAutoForward": "notify"
     }
   },

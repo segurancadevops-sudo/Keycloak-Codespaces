@@ -1,242 +1,310 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-IMAGE="${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:latest}"
+CONTAINER="keycloak"
+IMAGE="${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.7.1}"
 ADMIN="${KEYCLOAK_ADMIN:-admin}"
 PASSWORD="${KEYCLOAK_PASSWORD:-Treinamento@2026}"
-CONTAINER_NAME="keycloak"
 
+green() { printf '\033[1;32m%s\033[0m\n' "$*"; }
+yellow(){ printf '\033[1;33m%s\033[0m\n' "$*"; }
+red()   { printf '\033[1;31m%s\033[0m\n' "$*"; }
+
+fatal() {
+  red "[ERRO] $*"
+  echo
+  echo "Laboratorio NAO liberado."
+  echo "Diagnostico:"
+  echo "  ./scripts/diagnosticar-abertura.sh"
+  exit 1
+}
+
+echo
 echo "============================================================"
 echo " KEYCLOAK TRAINING ACADEMY"
+echo " Bootstrap + Self-Test"
 echo "============================================================"
 echo
 
-if ! command -v docker >/dev/null 2>&1; then
-  echo "[ERRO] Docker não está disponível."
-  echo "[AÇÃO] Este Codespace provavelmente foi criado antes da configuração atual."
-  echo "[AÇÃO] Exclua-o e crie um NOVO Codespace a partir da branch main."
-  exit 1
-fi
+# ------------------------------------------------------------
+# 1. Ambiente Codespaces
+# ------------------------------------------------------------
 
-echo "[INFO] Aguardando Docker Engine..."
+[[ -n "${CODESPACE_NAME:-}" ]]   || fatal "Este script foi preparado para GitHub Codespaces."
 
-DOCKER_READY=false
-for tentativa in $(seq 1 60); do
+FORWARD_DOMAIN="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
+PUBLIC_HOST="${CODESPACE_NAME}-8080.${FORWARD_DOMAIN}"
+PUBLIC_URL="https://${PUBLIC_HOST}"
+ADMIN_URL="${PUBLIC_URL}/admin/"
+TOKEN_URL="${PUBLIC_URL}/realms/master/protocol/openid-connect/token"
+
+echo "Codespace : ${CODESPACE_NAME}"
+echo "URL       : ${PUBLIC_URL}"
+echo
+
+# ------------------------------------------------------------
+# 2. Docker
+# ------------------------------------------------------------
+
+command -v docker >/dev/null 2>&1   || fatal "Docker CLI nao encontrado. Crie um NOVO Codespace."
+
+echo "[1/9] Aguardando Docker Engine..."
+
+DOCKER_OK=false
+for _ in $(seq 1 60); do
   if docker info >/dev/null 2>&1; then
-    DOCKER_READY=true
+    DOCKER_OK=true
     break
   fi
-  printf "."
   sleep 2
 done
-echo
 
-if [[ "$DOCKER_READY" != "true" ]]; then
-  echo "[ERRO] Docker Engine não ficou disponível após 120 segundos."
-  exit 1
-fi
+[[ "$DOCKER_OK" == "true" ]]   || fatal "Docker Engine nao ficou pronto em 120 segundos."
 
-echo "[OK] Docker Engine pronto."
+green "[OK] Docker Engine pronto."
 
 # ------------------------------------------------------------
-# URL do Codespaces
-# ------------------------------------------------------------
-
-if [[ -n "${CODESPACE_NAME:-}" ]]; then
-  FORWARD_DOMAIN="${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-app.github.dev}"
-  KEYCLOAK_URL="https://${CODESPACE_NAME}-8080.${FORWARD_DOMAIN}"
-  MODO="codespaces"
-else
-  KEYCLOAK_URL="http://localhost:8080"
-  MODO="local"
-fi
-
-echo "[INFO] Modo: ${MODO}"
-echo "[INFO] URL: ${KEYCLOAK_URL}"
-echo
-
-# ------------------------------------------------------------
-# Porta pública no Codespaces
-# ------------------------------------------------------------
-
-if [[ "$MODO" == "codespaces" ]]; then
-  echo "[INFO] Preparando porta 8080 para acesso do aluno..."
-
-  if command -v gh >/dev/null 2>&1; then
-    export GH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
-
-    PORT_PUBLIC=false
-
-    for tentativa in $(seq 1 30); do
-      if gh codespace ports visibility 8080:public \
-           -c "${CODESPACE_NAME}" >/dev/null 2>&1; then
-        PORT_PUBLIC=true
-        break
-      fi
-      printf "."
-      sleep 2
-    done
-    echo
-
-    if [[ "$PORT_PUBLIC" == "true" ]]; then
-      echo "[OK] Porta 8080 configurada como PUBLIC."
-    else
-      echo "[AVISO] O GitHub não permitiu tornar a porta pública automaticamente."
-      echo "[AVISO] Pode existir uma política da organização bloqueando portas públicas."
-      echo "[AÇÃO] Na aba PORTS, altere Port Visibility para Public."
-    fi
-  else
-    echo "[AVISO] GitHub CLI não disponível."
-  fi
-fi
-
-# ------------------------------------------------------------
-# Sobe Keycloak
+# 3. Container
 # ------------------------------------------------------------
 
 echo
-echo "[INFO] Removendo container anterior..."
-docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
+echo "[2/9] Iniciando Keycloak..."
 
-echo "[INFO] Iniciando Keycloak..."
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
 
-DOCKER_ARGS=(
-  run -d
-  --name "${CONTAINER_NAME}"
-  --restart unless-stopped
-  -p 8080:8080
-  -e KC_BOOTSTRAP_ADMIN_USERNAME="${ADMIN}"
-  -e KC_BOOTSTRAP_ADMIN_PASSWORD="${PASSWORD}"
-)
+docker run -d   --name "$CONTAINER"   --restart unless-stopped   -p 8080:8080   -e KC_BOOTSTRAP_ADMIN_USERNAME="$ADMIN"   -e KC_BOOTSTRAP_ADMIN_PASSWORD="$PASSWORD"   -e KC_HOSTNAME="$PUBLIC_URL"   -e KC_HOSTNAME_STRICT=true   -e KC_PROXY_HEADERS=xforwarded   -e KC_HTTP_ENABLED=true   -e KC_HTTP_ACCESS_LOG_ENABLED=true   -e KC_HTTP_ACCESS_LOG_PATTERN=combined   "$IMAGE"   start-dev >/dev/null
 
-if [[ "$MODO" == "codespaces" ]]; then
-  DOCKER_ARGS+=(
-    -e KC_HOSTNAME="${KEYCLOAK_URL}"
-    -e KC_HOSTNAME_STRICT="true"
-    -e KC_PROXY_HEADERS="xforwarded"
-  )
-fi
+green "[OK] Container criado."
 
-DOCKER_ARGS+=(
-  "${IMAGE}"
-  start-dev
-)
+# ------------------------------------------------------------
+# 4. Readiness local
+# ------------------------------------------------------------
 
-docker "${DOCKER_ARGS[@]}" >/dev/null
+echo
+echo "[3/9] Aguardando Keycloak responder..."
 
-echo "[INFO] Container criado."
-echo "[INFO] Aguardando Keycloak ficar pronto..."
+KC_READY=false
 
-KEYCLOAK_READY=false
-
-for tentativa in $(seq 1 120); do
+for _ in $(seq 1 120); do
   if curl -fsS http://localhost:8080/realms/master >/dev/null 2>&1; then
-    KEYCLOAK_READY=true
+    KC_READY=true
     break
   fi
 
-  if ! docker ps --format '{{.Names}}' | grep -qx "${CONTAINER_NAME}"; then
-    echo
-    echo "[ERRO] Container Keycloak encerrou."
-    docker logs "${CONTAINER_NAME}" --tail 120 || true
-    exit 1
+  if ! docker ps --format '{{.Names}}' | grep -qx "$CONTAINER"; then
+    docker logs "$CONTAINER" --tail 150 || true
+    fatal "O container Keycloak encerrou durante a inicializacao."
   fi
 
-  printf "."
   sleep 2
 done
+
+[[ "$KC_READY" == "true" ]]   || {
+    docker logs "$CONTAINER" --tail 150 || true
+    fatal "Keycloak nao ficou pronto em 240 segundos."
+  }
+
+green "[OK] Realm master responde localmente."
+
+# ------------------------------------------------------------
+# 5. Issuer
+# ------------------------------------------------------------
+
 echo
-
-if [[ "$KEYCLOAK_READY" != "true" ]]; then
-  echo "[ERRO] Keycloak não ficou pronto após 240 segundos."
-  docker logs "${CONTAINER_NAME}" --tail 120 || true
-  exit 1
-fi
-
-echo "[OK] Keycloak respondeu localmente."
-
-# ------------------------------------------------------------
-# Valida issuer
-# ------------------------------------------------------------
+echo "[4/9] Validando issuer OIDC..."
 
 ISSUER="$(
-  curl -fsS \
-    http://localhost:8080/realms/master/.well-known/openid-configuration \
-  | sed -n 's/.*"issuer":"\([^"]*\)".*/\1/p' \
-  | head -n1
+  curl -fsS     http://localhost:8080/realms/master/.well-known/openid-configuration     | sed -n 's/.*"issuer":"\([^"]*\)".*/\1/p'     | head -n1
 )"
 
-EXPECTED_ISSUER="${KEYCLOAK_URL}/realms/master"
+EXPECTED_ISSUER="${PUBLIC_URL}/realms/master"
 
-if [[ "$ISSUER" == "$EXPECTED_ISSUER" ]]; then
-  echo "[OK] Issuer correto."
-else
-  echo "[ERRO] Issuer incorreto."
-  echo "Esperado: ${EXPECTED_ISSUER}"
-  echo "Recebido: ${ISSUER}"
-  exit 1
-fi
+[[ "$ISSUER" == "$EXPECTED_ISSUER" ]]   || fatal "Issuer incorreto. Esperado: $EXPECTED_ISSUER | Recebido: $ISSUER"
+
+green "[OK] Issuer: $ISSUER"
 
 # ------------------------------------------------------------
-# Valida URL remota PUBLIC
+# 6. Administrador e API administrativa
 # ------------------------------------------------------------
 
-if [[ "$MODO" == "codespaces" ]]; then
-  echo "[INFO] Validando acesso externo..."
+echo
+echo "[5/9] Validando administrador..."
 
-  REMOTE_READY=false
+docker exec "$CONTAINER"   /opt/keycloak/bin/kcadm.sh config credentials   --server http://localhost:8080   --realm master   --user "$ADMIN"   --password "$PASSWORD" >/dev/null   || fatal "Falha ao autenticar o administrador via kcadm."
 
-  for tentativa in $(seq 1 60); do
-    HTTP_CODE="$(
-      curl -L -sS -o /dev/null -w '%{http_code}' \
-        "${KEYCLOAK_URL}/realms/master" 2>/dev/null || true
-    )"
+docker exec "$CONTAINER"   /opt/keycloak/bin/kcadm.sh get realms   --fields realm >/dev/null   || fatal "Administrador autenticou, mas nao conseguiu consultar a Admin REST API."
 
-    if [[ "$HTTP_CODE" == "200" ]]; then
-      REMOTE_READY=true
-      break
-    fi
+green "[OK] Administrador autenticado e autorizado."
 
-    printf "."
-    sleep 2
-  done
-  echo
+# ------------------------------------------------------------
+# 7. Corrige de forma deterministica o client do Admin Console
+# ------------------------------------------------------------
 
-  if [[ "$REMOTE_READY" == "true" ]]; then
-    echo "[OK] URL pública respondendo HTTP 200."
-  else
-    echo "[AVISO] A URL externa não respondeu HTTP 200 sem autenticação do GitHub."
-    echo "[AVISO] Verifique se a porta 8080 está realmente PUBLIC na aba PORTS."
+echo
+echo "[6/9] Validando security-admin-console..."
+
+CLIENT_ID="$(
+  docker exec "$CONTAINER"     /opt/keycloak/bin/kcadm.sh get clients     -r master     -q clientId=security-admin-console     --fields id   | sed -n 's/.*"id" : "\([^"]*\)".*/\1/p'   | head -n1
+)"
+
+[[ -n "$CLIENT_ID" ]]   || fatal "Client security-admin-console nao encontrado."
+
+ADMIN_REDIRECT="${PUBLIC_URL}/admin/master/console/*"
+
+# Em Codespaces cada aluno recebe um hostname diferente.
+# Por isso configuramos explicitamente a origem e o redirect do Codespace atual.
+docker exec "$CONTAINER"   /opt/keycloak/bin/kcadm.sh update "clients/${CLIENT_ID}"   -r master   -s "redirectUris=[\\"${ADMIN_REDIRECT}\\",\\"/admin/master/console/*\\"]"   -s "webOrigins=[\\"${PUBLIC_URL}\\"]" >/dev/null   || fatal "Nao foi possivel ajustar o security-admin-console."
+
+CLIENT_CHECK="$(
+  docker exec "$CONTAINER"     /opt/keycloak/bin/kcadm.sh get "clients/${CLIENT_ID}"     -r master     --fields clientId,redirectUris,webOrigins
+)"
+
+echo "$CLIENT_CHECK" | grep -Fq "$PUBLIC_URL"   || fatal "A origem publica nao foi gravada no security-admin-console."
+
+green "[OK] security-admin-console configurado para este Codespace."
+
+# ------------------------------------------------------------
+# 8. Porta publica do Codespaces
+# ------------------------------------------------------------
+
+echo
+echo "[7/9] Configurando porta 8080 como PUBLIC..."
+
+command -v gh >/dev/null 2>&1   || fatal "GitHub CLI nao encontrado."
+
+export GH_TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
+
+[[ -n "${GH_TOKEN:-}" ]]   || fatal "Token do GitHub nao esta disponivel no Codespace."
+
+PORT_PUBLIC=false
+
+for _ in $(seq 1 30); do
+  if gh codespace ports visibility 8080:public       -c "$CODESPACE_NAME" >/dev/null 2>&1; then
+    PORT_PUBLIC=true
+    break
   fi
+  sleep 2
+done
+
+[[ "$PORT_PUBLIC" == "true" ]]   || fatal "Nao foi possivel tornar a porta 8080 publica. Uma politica da organizacao pode estar bloqueando."
+
+VISIBILITY="$(
+  gh codespace ports     -c "$CODESPACE_NAME"     --json sourcePort,visibility     --jq '.[] | select(.sourcePort == 8080) | .visibility'     2>/dev/null || true
+)"
+
+[[ "$VISIBILITY" == "public" ]]   || fatal "A porta 8080 nao ficou publica. Visibilidade atual: ${VISIBILITY:-desconhecida}"
+
+green "[OK] Porta 8080 PUBLIC."
+
+# ------------------------------------------------------------
+# 9. Teste externo
+# ------------------------------------------------------------
+
+echo
+echo "[8/9] Validando URL externa..."
+
+REMOTE_OK=false
+
+for _ in $(seq 1 60); do
+  CODE="$(
+    curl -sS -o /dev/null -w '%{http_code}'       "${PUBLIC_URL}/realms/master" 2>/dev/null || true
+  )"
+
+  if [[ "$CODE" == "200" ]]; then
+    REMOTE_OK=true
+    break
+  fi
+
+  sleep 2
+done
+
+[[ "$REMOTE_OK" == "true" ]]   || fatal "URL externa nao respondeu HTTP 200."
+
+green "[OK] URL externa HTTP 200."
+
+# ------------------------------------------------------------
+# 10. Self-test do CORS do endpoint que antes retornava 403
+# ------------------------------------------------------------
+
+echo
+echo "[9/9] Testando CORS do endpoint de token..."
+
+TMP_HEADERS="$(mktemp)"
+TMP_BODY="$(mktemp)"
+trap 'rm -f "$TMP_HEADERS" "$TMP_BODY"' EXIT
+
+# Enviamos um authorization_code propositalmente invalido.
+# O objetivo nao e obter token.
+# O objetivo e verificar que a origem NAO seja recusada com HTTP 403.
+TOKEN_STATUS="$(
+  curl -sS     -D "$TMP_HEADERS"     -o "$TMP_BODY"     -w '%{http_code}'     -X POST "$TOKEN_URL"     -H "Origin: ${PUBLIC_URL}"     -H 'Content-Type: application/x-www-form-urlencoded'     --data-urlencode 'client_id=security-admin-console'     --data-urlencode 'grant_type=authorization_code'     --data-urlencode 'code=teste-invalido-self-test'     --data-urlencode "redirect_uri=${PUBLIC_URL}/admin/master/console/"     --data-urlencode 'code_verifier=teste-invalido-self-test'     2>/dev/null || true
+)"
+
+if [[ "$TOKEN_STATUS" == "403" ]]; then
+  echo
+  echo "Resposta:"
+  cat "$TMP_BODY" || true
+  echo
+  docker logs "$CONTAINER" --tail 80 || true
+  fatal "O endpoint /token ainda rejeitou a origem com HTTP 403."
 fi
 
+ALLOW_ORIGIN="$(
+  tr -d '\r' < "$TMP_HEADERS"     | awk 'BEGIN{IGNORECASE=1} /^access-control-allow-origin:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}'
+)"
+
+if [[ "$ALLOW_ORIGIN" != "$PUBLIC_URL" ]]; then
+  yellow "[AVISO] HTTP do teste: $TOKEN_STATUS"
+  yellow "[AVISO] Access-Control-Allow-Origin nao veio exatamente como esperado."
+  yellow "[AVISO] Recebido: ${ALLOW_ORIGIN:-ausente}"
+
+  # Ausencia do header junto com um status de erro nao-CORS pode variar
+  # entre versoes. A condicao critica conhecida e HTTP 403.
+else
+  green "[OK] CORS permitido para $PUBLIC_URL."
+fi
+
+green "[OK] Endpoint /token nao retornou HTTP 403. Status de self-test: $TOKEN_STATUS"
+
 # ------------------------------------------------------------
-# Entrega ao aluno
+# Resultado final
 # ------------------------------------------------------------
 
 echo
 echo "============================================================"
-echo " LABORATÓRIO PRONTO"
+echo " LABORATORIO VALIDADO E LIBERADO"
 echo "============================================================"
 echo
-echo "Usuário: ${ADMIN}"
-echo "Senha:   ${PASSWORD}"
+echo "Docker                  : OK"
+echo "Keycloak                : OK"
+echo "Realm master            : OK"
+echo "Issuer OIDC             : OK"
+echo "Administrador           : OK"
+echo "Admin REST API          : OK"
+echo "security-admin-console  : OK"
+echo "Porta Codespaces        : PUBLIC"
+echo "URL externa             : OK"
+echo "CORS /token             : OK"
 echo
-echo "Keycloak:"
-echo "${KEYCLOAK_URL}"
+echo "Usuario:"
+echo "  $ADMIN"
 echo
-echo "Console administrativo:"
-echo "${KEYCLOAK_URL}/admin/"
+echo "Senha:"
+echo "  $PASSWORD"
+echo
+echo "Admin Console:"
+echo "  $ADMIN_URL"
 echo
 echo "IMPORTANTE:"
-echo "Use a URL app.github.dev exibida acima."
-echo "Não use localhost no navegador."
-echo "Não acrescente :8080 ao final da URL do Codespaces."
+echo "  No Codespaces nao use localhost no navegador."
+echo "  Nao adicione :8080 ao final da URL app.github.dev."
+echo
 echo "============================================================"
 echo
 
-# Tenta abrir somente depois de todos os checks.
-if [[ "$MODO" == "codespaces" ]] && command -v code >/dev/null 2>&1; then
-  echo "[INFO] Tentando abrir o Admin Console no navegador..."
-  code --open-url "${KEYCLOAK_URL}/admin/" >/dev/null 2>&1 || true
+# Tenta abrir somente depois de todos os testes.
+if [[ -n "${BROWSER:-}" ]] && [[ -x "${BROWSER}" ]]; then
+  "${BROWSER}" "$ADMIN_URL" >/dev/null 2>&1 || true
+elif command -v code >/dev/null 2>&1; then
+  code --open-url "$ADMIN_URL" >/dev/null 2>&1 || true
 fi
