@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
 set -u
 
+echo
 echo "============================================================"
-echo " KEYCLOAK TRAINING ACADEMY - PREPARAÇÃO DO AMBIENTE"
+echo " KEYCLOAK TRAINING ACADEMY - PREPARAÇÃO"
 echo "============================================================"
-. /etc/os-release
-echo "Sistema: ${PRETTY_NAME:-Linux}"
 
 if command -v docker >/dev/null 2>&1; then
-  echo "[OK] Docker CLI encontrado:"
+  echo "[OK] Docker CLI encontrado."
   docker --version || true
-  echo "[INFO] Aguardando Docker Engine..."
-  for i in $(seq 1 30); do
-    if docker info >/dev/null 2>&1; then
-      echo "[OK] Docker Engine disponível."
-      break
-    fi
-    sleep 2
-  done
 else
-  echo "[ERRO] Docker não foi instalado no Dev Container."
+  echo "[ERRO] Docker não foi instalado."
 fi
 
-echo "Próximo comando: ./scripts/iniciar-keycloak.sh"
+if command -v gh >/dev/null 2>&1; then
+  echo "[OK] GitHub CLI encontrado."
+  gh --version | head -n1 || true
+else
+  echo "[ERRO] GitHub CLI não foi instalado."
+fi
+
+echo
+echo "Próximo comando:"
+echo "  ./scripts/iniciar-keycloak.sh"
+echo "============================================================"
