@@ -1,9 +1,12 @@
 {
   "name": "Keycloak Training Codespace",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "image": "mcr.microsoft.com/devcontainers/base:noble",
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:4": {
-      "moby": false
+      "moby": false,
+      "version": "latest",
+      "installDockerBuildx": true,
+      "dockerDashComposeVersion": "latest"
     }
   },
   "forwardPorts": [8080],
@@ -13,5 +16,8 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "docker --version && echo 'Ambiente Keycloak Training pronto.'"
+  "hostRequirements": {
+    "cpus": 2
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh"
 }
