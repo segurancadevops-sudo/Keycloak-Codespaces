@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE="${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:latest}"
+ADMIN="${KEYCLOAK_ADMIN:-admin}"
+PASSWORD="${KEYCLOAK_PASSWORD:-Treinamento@2026}"
+CONTAINER_NAME="keycloak"
+
 if [[ -n "${CODESPACE_NAME:-}" ]]; then
     KEYCLOAK_URL="https://${CODESPACE_NAME}-8080.app.github.dev"
 
