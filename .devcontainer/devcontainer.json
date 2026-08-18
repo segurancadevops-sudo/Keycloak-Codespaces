@@ -2,7 +2,9 @@
   "name": "Keycloak Training Codespace",
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "features": {
-    "ghcr.io/devcontainers/features/docker-in-docker:4": {}
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {
+      "moby": false
+    }
   },
   "forwardPorts": [8080],
   "portsAttributes": {
