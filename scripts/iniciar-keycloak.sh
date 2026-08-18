@@ -152,8 +152,16 @@ CLIENT_ID="$(
 ADMIN_REDIRECT="${PUBLIC_URL}/admin/master/console/*"
 
 # Em Codespaces cada aluno recebe um hostname diferente.
-# Por isso configuramos explicitamente a origem e o redirect do Codespace atual.
-docker exec "$CONTAINER"   /opt/keycloak/bin/kcadm.sh update "clients/${CLIENT_ID}"   -r master   -s "redirectUris=[\\"${ADMIN_REDIRECT}\\",\\"/admin/master/console/*\\"]"   -s "webOrigins=[\\"${PUBLIC_URL}\\"]" >/dev/null   || fatal "Nao foi possivel ajustar o security-admin-console."
+# Montamos os valores JSON com printf para evitar problemas de escape de aspas.
+REDIRECT_SPEC="$(printf 'redirectUris=["%s","/admin/master/console/*"]' "$ADMIN_REDIRECT")"
+ORIGIN_SPEC="$(printf 'webOrigins=["%s"]' "$PUBLIC_URL")"
+
+echo "[INFO] Redirects que serao aplicados:"
+echo "       $REDIRECT_SPEC"
+echo "[INFO] Web Origin que sera aplicada:"
+echo "       $ORIGIN_SPEC"
+
+docker exec "$CONTAINER"   /opt/keycloak/bin/kcadm.sh update "clients/${CLIENT_ID}"   -r master   -s "$REDIRECT_SPEC"   -s "$ORIGIN_SPEC" >/dev/null   || fatal "Nao foi possivel ajustar o security-admin-console."
 
 CLIENT_CHECK="$(
   docker exec "$CONTAINER"     /opt/keycloak/bin/kcadm.sh get "clients/${CLIENT_ID}"     -r master     --fields clientId,redirectUris,webOrigins
